@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 
+
 class KinopoiskTvPage:
     # --- Локаторы ---
     TV_CHANNELS_LINK = (By.XPATH, '//nav//a[contains(., "Телеканалы")]')
@@ -51,3 +52,12 @@ class KinopoiskTvPage:
         federal = self.wait.until(EC.element_to_be_clickable(self.FEDERAL_TAB))
         federal.click()
         self.wait.until(EC.visibility_of_element_located(self.FIRST_CHANNEL_CARD))
+
+    @allure.step("Проверка наличия карточек каналов")
+    def proverka_tv_chanel_card(self) -> None:
+        cards = self.wait.until(
+            EC.visibility_of_all_elements_located(self.FIRST_CHANNEL_CARD)
+        )
+        assert (
+            len(cards) >= 1
+        )   , f"Не найдено ни одной карточки канала. Найдено: {len(cards)}"

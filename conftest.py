@@ -3,10 +3,11 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.options import Options
-from config import HEADLESS, TIMEOUT
-from pages.search_page import MovieSearchPage
+from config import HEADLESS, TIMEOUT, BASE_URL
+from pages.api_class_page import ApiPage
 import os
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
@@ -19,19 +20,20 @@ def base_url():
     return url
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def api_key():
     key = os.getenv("API_KEY")
     if not key:
-        raise ValueError("API_KEY не задан в .env")
+        pytest.skip("Не задан API_KEY")
     return key
 
+@pytest.fixture
+def api_headers(api_key):
+    return {"X-API-KEY": api_key}
 
 @pytest.fixture
-def movie_search_page(base_url, api_key):
-    headers = {"X-API-KEY": api_key}
-    return MovieSearchPage(base_url=base_url, headers=headers)
-
+def api(api_headers):
+    return ApiPage(BASE_URL, api_headers, api_version="v1.5")
 
 @pytest.fixture(scope="session")
 def driver():
@@ -46,14 +48,7 @@ def driver():
     yield driver
     driver.quit()
 
-
 @pytest.fixture
 def session(driver):
     """Фикстура, которую можно использовать в тестах для доступа к driver."""
     return driver
-
-
-@pytest.fixture
-def movie_search_page(base_url, api_key):
-    headers = {"X-API-KEY": api_key}
-    return MovieSearchPage(base_url=base_url, headers=headers)
