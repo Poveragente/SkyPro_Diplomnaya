@@ -1,19 +1,12 @@
 import allure
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 from pages.movie_page import MoviePage
 
 
 @allure.epic("Кинопоиск UI")
 @allure.feature("Поиск и карточка фильма по описанию")
 @allure.title("Тест: поиск, фильма по его описанию")
-def test_search_and_trailer_controls():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()), options=options
-    )
+def test_search_and_trailer_controls(session):
+    driver = session
 
     try:
         page = MoviePage(driver)

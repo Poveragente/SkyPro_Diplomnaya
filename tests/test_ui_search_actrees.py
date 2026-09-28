@@ -1,21 +1,12 @@
 import allure
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-
-from webdriver_manager.chrome import ChromeDriverManager
 from pages.movie_page import MoviePage
 
 
 @allure.epic("Кинопоиск")
 @allure.feature("Поиск актрисы")
 @allure.title("Тест: поиск, карточка")
-def test_search_actrees():
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
-    driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()), options=options
-    )
-
+def test_search_actrees(session):
+    driver = session
     page = MoviePage(driver)
 
     with allure.step("Открыть Кинопоиск"):
@@ -49,13 +40,11 @@ def test_search_actrees():
             name="SearchFilled",
             attachment_type=allure.attachment_type.PNG,
         )
-
-        with allure.step("Кликнуть на карточку актрисы"):
-            page.click_actrees_card()
-            allure.attach(
-                driver.get_screenshot_as_png(),
-                name="ActorCard",
-                attachment_type=allure.attachment_type.PNG,
-            )
-        driver.close()
+    with allure.step("Кликнуть на карточку актрисы"):
+        page.click_actrees_card()
+        allure.attach(
+            driver.get_screenshot_as_png(),
+            name="ActorCardOpened",
+            attachment_type=allure.attachment_type.PNG,
+        )
 

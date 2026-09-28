@@ -32,9 +32,10 @@ class MoviePage:
     )
     CLOSE_AD_BUTTON = (By.CSS_SELECTOR, "button svg path[d^='m12.666']")
 
-    ACTRESS_POSTER = (By.CSS_SELECTOR, 'img[src*="avatars.mds.yandex.net"]')
+    ANIME = (By.XPATH, '//nav//a[contains(., "Аниме")]')
 
-    ANIME = (By.CSS_SELECTOR,"a[data-tid='de7c6530']")
+    ANIME_CARD = (By.CSS_SELECTOR, 'a[data-test-id="RouterLink"]')
+
 
     def __init__(self, driver, url="https://www.kinopoisk.ru", timeout: int = 15):
         self.driver = driver
@@ -46,7 +47,6 @@ class MoviePage:
     def open(self) -> None:
         self.driver.get("https://www.kinopoisk.ru")
         self.wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-
     # --- Реклама ---
     @allure.step("Закрыть баннер-рекламу (если есть)")
     def close_ad_if_present(self, timeout: int = 5) -> bool:
@@ -62,14 +62,12 @@ class MoviePage:
             return True
         except Exception:
             return False
-
     # --- Поиск ---
     @allure.step("Кликнуть по строке поиска")
     def click_search(self) -> WebElement:
         search = self.wait.until(EC.element_to_be_clickable(self.SEARCH_INPUT))
         search.click()
         return search
-
     # --- Ввод названия фильма ---
     @allure.step("Ввести название фильма «Джентльмены»")
     def type_movie_title(self, search: WebElement, title: str = "Джентльмены") -> None:
@@ -88,7 +86,6 @@ class MoviePage:
             lambda d: d.find_element(*self.SEARCH_INPUT).get_attribute("value").strip()
             == title
         )
-
     # --- Ввод имени актрисы ---
     @allure.step("Ввести имя актрисы «Николь Кидман»")
     def type_actrees_title(self, search: WebElement, title: str = "Николь Кидман") -> None:
@@ -98,7 +95,6 @@ class MoviePage:
             lambda d: d.find_element(*self.SEARCH_INPUT).get_attribute("value").strip()
             == title
         )
-
     # Нажатие кнопки Ввод
     @allure.step("Нажать Enter в строке поиска и дождаться результатов")
     def submit_search(self, search: WebElement) -> None:
@@ -107,14 +103,12 @@ class MoviePage:
         self.wait.until(
             lambda d: len(d.find_elements(*self.SEARCH_RESULTS)) > 0
         )
-
+    # Нажатие кнопки ANIME
     @allure.step("Кликнуть по кнопке Анимэ")
     def submit_anime(self) -> None:
         btn = self.driver.find_element(*self.ANIME)
         btn.click()
-
     # --- Карточка фильма ---
-
     @allure.step("Кликнуть на карточку фильма по data-test-id")
     def click_movie_card(self) -> None:
         # Ждем, пока ссылка станет кликабельной
@@ -164,3 +158,9 @@ class MoviePage:
         self.wait.until(EC.element_to_be_clickable(self.TRAILER_EMBED))
         el = self.driver.find_element(*self.TRAILER_EMBED)
         el.click()
+
+    @allure.step("Проверка карточки АНИМЭ")
+    def proverka_anime(self) -> None:
+        self.wait.until(EC.presence_of_element_located(self.ANIME_CARD))
+
+

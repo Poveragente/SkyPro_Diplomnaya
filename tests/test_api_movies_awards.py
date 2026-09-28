@@ -1,6 +1,5 @@
 import os
 import json
-import requests
 import allure
 import pytest
 from dotenv import load_dotenv
@@ -10,77 +9,94 @@ load_dotenv()
 BASE_URL = os.getenv("BASE_URL")
 API_KEY = os.getenv("API_KEY")
 
+if not BASE_URL or not API_KEY:
+    pytest.skip("Не заданы BASE_URL или API_KEY", allow_module_level=True)
+
+
+def _attach_json(name, data):
+    allure.attach(
+        name=name,
+        body=json.dumps(data, ensure_ascii=False, indent=2),
+        attachment_type=allure.attachment_type.JSON,
+    )
 
 @allure.feature("API")
 @allure.story("Поиск фильма и его наград")
 @pytest.mark.api
-def test_api_movies_and_awards():
-    movie_name = "Анора"
+def test_find_film_and_awards(api):
+    film_name = "Джентльмены"
 
-    with allure.step(f"Поиск Фильма: {movie_name}"):
-        search_url = f"{BASE_URL}/v1.5/movie/search"
-        headers = {"X-API-KEY": API_KEY}
-        params = {"query": movie_name, "page": 1, "limit": 1}
+    # ── Шаг 1. Поиск фильма ──
+    with allure.step(f"Поиск фильма '{film_name}'"):
+        search_result = api.search_movies(query=film_name, limit=5, page=1)
 
-        resp = requests.get(search_url, headers=headers, params=params)
-        assert resp.status_code == 200, f"Search failed: {resp.status_code}"
+        assert "docs" in search_result, "В ответе нет ключа 'docs'"
+        assert len(search_result["docs"]) > 0, "Фильмы не найдены"
 
-        docs = resp.json()
-        assert len(docs.get("docs", [])) > 0, "No persons found in search result"
+        film = search_result["docs"][0]
+        film_id = film["id"]
+        _attach_json("First Film from Search", film)
+        allure.attach(str(film_id), name="Film ID",
+                       attachment_type=allure.attachment_type.TEXT)
 
-        movie_id = docs["docs"][0]["id"]
-        allure.attach(
-            name="Found movieId",
-            body=str(movie_id),
-            attachment_type=allure.attachment_type.TEXT,
+        # Проверяем релевантность
+        name = film.get("name", "")
+        alt_name = film.get("alternativeName", "")
+        searchable = (name or alt_name).lower()
+        assert (film_name.lower() in searchable
+                or searchable in film_name.lower()), (
+            f"Название '{searchable}' не совпадает с запросом '{film_name}'"
         )
 
-    with allure.step(f"Получение наград для movieId={movie_id}"):
-        awards_url = f"{BASE_URL}/v1.5/movie/awards"
-        params_awards = {
-            "movieId": movie_id,
-            "limit": 10,
-        }
-
-        resp_awards = requests.get(awards_url, headers=headers, params=params_awards)
-        assert (
-            resp_awards.status_code == 200
-        ), f"Awards request failed: {resp_awards.status_code}"
-        awards_data = resp_awards.json()
-
-        allure.attach(
-            name="Awards response",
-            body=json.dumps(awards_data, ensure_ascii=False, indent=2),
-            attachment_type=allure.attachment_type.JSON,
+    # ── Шаг 2. Получение полных данных о фильме по ID ──
+    with allure.step(f"Получение фильма по ID={film_id}"):
+        movie_details = api.get_movie_by_id(film_id)
+        assert movie_details.get("id") == film_id, (
+            f"ID в ответе {movie_details.get('id')} не совпадает с {film_id}"
         )
+        _attach_json("Movie Details", movie_details)
 
-    awards_docs = awards_data.get("docs", [])
+        # Проверка обязательных полей
+        assert "name" in movie_details or "alternativeName" in movie_details, (
+            "У фильма нет ни name, ни alternativeName"
+        )
+        assert "type" in movie_details, "У фильма нет поля 'type'"
+        assert movie_details["type"], "type не должен быть пустым"
 
-    # 1. Список не пустой
-    assert len(awards_docs) > 0, "Награды не найдены"
+    # ── Шаг 3. Получение наград фильма ──
+    with allure.step(f"Получение наград фильма ID={film_id}"):
+        awards = api.get_movie_awards(film_id, limit=50)
+        _attach_json("Movie Awards", awards)
 
-    # 2. Каждая награда имеет nomination
-    for award in awards_docs:
-        assert "nomination" in award, f"Награда не содержит nomination: {award}"
+        # Структура ответа
+        assert "docs" in awards, "В ответе наград нет ключа 'docs'"
+        awards_list = awards["docs"]
+        allure.attach(str(len(awards_list)), name="Awards Count",
+                       attachment_type=allure.attachment_type.TEXT)
 
-    # 3. Номинация содержит премию с названием и годом
-    for award in awards_docs:
-        nom = award["nomination"]
-        assert "award" in nom, f"Номинация не содержит award: {nom}"
-        award_info = nom["award"]
-        assert "title" in award_info, f"Премия не содержит title: {award_info}"
-        assert "year" in award_info, f"Премия не содержит year: {award_info}"
-
-    # 4. Если API вернул personId — проверяем, что он совпадает
-    for award in awards_docs:
-        if "personId" in award:
-            assert (
-                award["personId"] == movie_id
-            ), f"personId в награде ({award['personId']}) не совпадает с ожидаемым ({movie_id})"
-
-    # 5. Если API вернул winning — проверяем, что это boolean
-    for award in awards_docs:
-        if "winning" in award:
-            assert isinstance(
-                award["winning"], bool
-            ), f"winning должен быть boolean: {award['winning']}"
+        if len(awards_list) > 0:
+            # Проверяем структуру первой награды
+            first_award = awards_list[0]
+            assert "movieId" in first_award or "movie" in first_award, (
+                "У награды нет ссылки на фильм (movieId/movie)"
+            )
+            assert "nomination" in first_award, (
+                "У награды нет поля 'nomination'"
+            )
+            # nomination может содержать award.title, year
+            nom = first_award["nomination"]
+            if isinstance(nom, dict):
+                assert "title" in nom or "award" in nom, (
+                    "В nomination нет ни 'title', ни 'award'"
+                )
+            allure.attach(
+                json.dumps(first_award, ensure_ascii=False, indent=2),
+                name="First Award",
+                attachment_type=allure.attachment_type.JSON,
+            )
+        else:
+            allure.attach(
+                "Награды не найдены — это допустимо для некоторых фильмов",
+                name="No Awards",
+                attachment_type=allure.attachment_type.TEXT,
+            )

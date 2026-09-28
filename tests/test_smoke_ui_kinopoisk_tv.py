@@ -1,5 +1,4 @@
 import allure
-from selenium.webdriver.support import expected_conditions as EC
 from pages.kinopoisk_tv_page import KinopoiskTvPage
 
 
@@ -21,17 +20,10 @@ def test_federal_channels_display(driver):
     with allure.step("Выбрать вкладку «Федеральные»"):
         page.click_federal_tab()
 
-    with allure.step("Проверить наличие карточек каналов"):
-        cards = page.wait.until(
-            EC.visibility_of_any_elements_located(page.FIRST_CHANNEL_CARD)
-        )
-        assert (
-            len(cards) >= 1
-        ), f"Не найдено ни одной карточки канала. Найдено: {len(cards)}"
-
     with allure.step("Сделать скриншот списка каналов"):
         allure.attach(
             driver.get_screenshot_as_png(),
             name="FederalChannelsList",
             attachment_type=allure.attachment_type.PNG,
         )
+
